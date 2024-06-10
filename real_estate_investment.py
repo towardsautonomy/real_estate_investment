@@ -383,7 +383,7 @@ app.layout = html.Div(children=[
         html.Div([
             html.Label('Grocery'),
             dcc.Input(id='grocery', type='number', value=GROCERY, step=50)
-        ], className='input'),
+        ], className='input-box'),
         html.Div([
             html.Label('Utility'),
             dcc.Input(id='utility', type='number', value=UTILITY, step=50)
