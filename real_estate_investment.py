@@ -14,16 +14,16 @@ INTEREST_RATE = 0.066
 APPRECIATION_RATE = 0.065
 INSURANCE = 2000.0  # per year
 LOAN_TERM = 30
-S_P_500_RETURN = 0.088
+S_P_500_RETURN = 0.07
 INITIAL_INCOME = 150000
 INCOME_GROWTH_RATE = 0.03
-INCOME_TAX_RATE = 0.46
-EXPENSE_GROWTH_RATE = 0.06
+INCOME_TAX_RATE = 0.4
+EXPENSE_GROWTH_RATE = 0.04
 INITIAL_RENT = 3000.0
 RENT_GROWTH_RATE = 0.045
 YEARLY_RSU_GRANT = 10000.0
 PRE_TAX_401K_CONTRIBUTION = 23000.0
-OPTIMUM_DOWNPAYMENT_PERCENTAGE = 0.23
+OPTIMUM_DOWNPAYMENT_PERCENTAGE = 0.2
 # Personal expenses
 INVESTMENT = 1000.0
 GROCERY = 300.0
@@ -341,7 +341,7 @@ app.layout = html.Div(children=[
             dcc.Input(id='insurance', type='number', value=INSURANCE, step=100)
         ], className='input-box'),
         html.Div([
-            html.Label('Initial Income'),
+            html.Label('Household Income'),
             dcc.Input(id='initial_income', type='number', value=INITIAL_INCOME, step=10000)
         ], className='input-box'),
         html.Div([
