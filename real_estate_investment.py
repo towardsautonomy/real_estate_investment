@@ -23,7 +23,7 @@ INITIAL_RENT = 3000.0
 RENT_GROWTH_RATE = 0.045
 YEARLY_RSU_GRANT = 10000.0
 PRE_TAX_401K_CONTRIBUTION = 23000.0
-OPTIMUM_DOWNPAYMENT_PERCENTAGE = 0.2
+OPTIMUM_DOWNPAYMENT_PERCENTAGE = 0.3
 # Personal expenses
 INVESTMENT = 500.0
 GROCERY = 300.0
@@ -272,7 +272,7 @@ class RealEstateInvestment:
         fig2 = self.create_plot("Optimal Time to Buy", years, 
                                 [investment_over_time, downpayment_30_over_time, house_price_over_time], 
                                 "Years", "Investment Value ($)", 
-                                ["Investment Over Time", "30% Downpayment", "House Price Over Time"], 
+                                ["Investment Over Time", f"{OPTIMUM_DOWNPAYMENT_PERCENTAGE * 100}% Downpayment", "House Price Over Time"], 
                                 ['#1f77b4', '#ff7f0e', '#2ca02c'], 
                                 vline)
 
