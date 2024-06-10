@@ -6,11 +6,11 @@ from dash import dcc, html, Input, Output
 from flask import Flask
 
 # Constants
-HOME_PRICE = 1500000.0
+HOME_PRICE = 150000.0
 DOWNPAYMENT_PERCENTAGE = 0.2
-CLOSING_COST = 40000.0
+CLOSING_COST = 45000.0
 PROPERTY_TAX_RATE = 0.0136
-INTEREST_RATE = 0.066
+INTEREST_RATE = 0.06375
 APPRECIATION_RATE = 0.065
 INSURANCE = 2000.0  # per year
 LOAN_TERM = 30
@@ -18,7 +18,7 @@ S_P_500_RETURN = 0.07
 INITIAL_INCOME = 150000
 INCOME_GROWTH_RATE = 0.03
 INCOME_TAX_RATE = 0.4
-EXPENSE_GROWTH_RATE = 0.04
+EXPENSE_GROWTH_RATE = 0.06
 INITIAL_RENT = 3000.0
 RENT_GROWTH_RATE = 0.045
 YEARLY_RSU_GRANT = 10000.0
@@ -48,6 +48,7 @@ class LoanDetails:
     monthly_interest_rate: float = field(init=False)
     num_payments: int = field(init=False)
     downpayment: float = field(init=False)
+    appreciation_rate: float = APPRECIATION_RATE
 
     def __post_init__(self):
         self.downpayment = self.house_price * self.downpayment_percentage
@@ -172,9 +173,9 @@ class RealEstateInvestment:
 
     def investment_vs_house_value(self, schedule):
         years = np.arange(1, LOAN_TERM + 1)
-        house_value = self.loan_details.house_price * ((1 + APPRECIATION_RATE) ** years)
+        house_value = self.loan_details.house_price * ((1 + self.loan_details.appreciation_rate) ** years)
         total_investment = self.loan_details.downpayment + self.loan_details.closing_cost + np.cumsum([self.house_expenses.total_home_expenses * 12 for _ in years])
-        sp500_investment = (self.loan_details.downpayment + self.loan_details.closing_cost) * ((1 + S_P_500_RETURN) ** years)
+        sp500_investment = (self.loan_details.downpayment + self.loan_details.closing_cost) * ((1 + self.investment_growth.investment_growth_rate) ** years)
         loan_balance = self.loan_details.loan_amount - schedule[:years.size * 12:12, 1]
         roi = house_value - total_investment - loan_balance
 
@@ -195,7 +196,7 @@ class RealEstateInvestment:
         house_price_over_time = []
 
         for year in range(1, LOAN_TERM + 1):
-            current_investment *= (1 + S_P_500_RETURN)
+            current_investment *= (1 + self.investment_growth.investment_growth_rate)
             current_house_price *= (1 + APPRECIATION_RATE)
             investment_over_time.append(current_investment)
             downpayment_30_over_time.append(current_house_price * OPTIMUM_DOWNPAYMENT_PERCENTAGE)
@@ -207,7 +208,7 @@ class RealEstateInvestment:
 
     def calculate_profit_and_loan_balance(self, schedule):
         years = np.arange(1, LOAN_TERM + 1)
-        house_value = self.loan_details.house_price * ((1 + APPRECIATION_RATE) ** years)
+        house_value = self.loan_details.house_price * ((1 + self.loan_details.appreciation_rate) ** years)
         total_investment = self.loan_details.downpayment + self.loan_details.closing_cost + np.cumsum([self.house_expenses.total_home_expenses * 12 for _ in years])
 
         loan_balance = self.loan_details.loan_amount - schedule[:years.size * 12:12, 1]
@@ -229,7 +230,7 @@ class RealEstateInvestment:
 
     def net_worth(self, schedule):
         years = np.arange(1, LOAN_TERM + 1)
-        assets = self.loan_details.house_price * ((1 + APPRECIATION_RATE) ** years) - (self.loan_details.loan_amount - schedule[:years.size * 12:12, 1])
+        assets = self.loan_details.house_price * ((1 + self.loan_details.appreciation_rate) ** years) - (self.loan_details.loan_amount - schedule[:years.size * 12:12, 1])
         stocks = np.array([self.investment_growth.accumulated_value(year) for year in years])
         k401 = np.array([self.investment_growth.accumulated_401k_value(year) for year in years])
         total_assets = assets + stocks + k401
@@ -299,13 +300,12 @@ class RealEstateInvestment:
 server = Flask(__name__)
 app = dash.Dash(__name__, server=server)
 
-# Example usage
 loan_details = LoanDetails(house_price=HOME_PRICE, downpayment_percentage=DOWNPAYMENT_PERCENTAGE, closing_cost=CLOSING_COST, interest_rate=INTEREST_RATE)
 house_expenses = HouseExpenses(loan_details)
 personal_expenses = PersonalExpenses()
 rent_expenses = RentExpenses()
 income_details = IncomeDetails()
-investment_growth = InvestmentGrowth(monthly_investment=personal_expenses.investment, yearly_rsu_grant=YEARLY_RSU_GRANT, pre_tax_401k_contribution=PRE_TAX_401K_CONTRIBUTION)
+investment_growth = InvestmentGrowth(monthly_investment=personal_expenses.investment, yearly_rsu_grant=YEARLY_RSU_GRANT, pre_tax_401k_contribution=PRE_TAX_401K_CONTRIBUTION, investment_growth_rate=S_P_500_RETURN)
 real_estate_investment = RealEstateInvestment(loan_details, house_expenses, personal_expenses, rent_expenses, income_details, investment_growth)
 
 # Create plots
@@ -357,7 +357,7 @@ app.layout = html.Div(children=[
             dcc.Input(id='expense_growth_rate', type='number', value=EXPENSE_GROWTH_RATE, step=0.01)
         ], className='input-box'),
         html.Div([
-            html.Label('Initial Rent'),
+            html.Label('Monthly Rent'),
             dcc.Input(id='initial_rent', type='number', value=INITIAL_RENT, step=100)
         ], className='input-box'),
         html.Div([
@@ -377,9 +377,13 @@ app.layout = html.Div(children=[
             dcc.Input(id='investment', type='number', value=INVESTMENT, step=100)
         ], className='input-box'),
         html.Div([
+            html.Label('S&P 500 Return'),
+            dcc.Input(id='sp500_return', type='number', value=S_P_500_RETURN, step=0.001)
+        ], className='input-box'),
+        html.Div([
             html.Label('Grocery'),
             dcc.Input(id='grocery', type='number', value=GROCERY, step=50)
-        ], className='input-box'),
+        ], className='input'),
         html.Div([
             html.Label('Utility'),
             dcc.Input(id='utility', type='number', value=UTILITY, step=50)
@@ -478,6 +482,7 @@ app.layout = html.Div(children=[
      Input('yearly_rsu_grant', 'value'),
      Input('pre_tax_401k_contribution', 'value'),
      Input('investment', 'value'),
+     Input('sp500_return', 'value'),
      Input('grocery', 'value'),
      Input('utility', 'value'),
      Input('subscription', 'value'),
@@ -490,7 +495,7 @@ app.layout = html.Div(children=[
      Input('car', 'value'),
      Input('miscellaneous', 'value')]
 )
-def update_plots(n_clicks, home_price, downpayment_percentage, closing_cost, interest_rate, appreciation_rate, insurance, initial_income, income_growth_rate, income_tax_rate, expense_growth_rate, initial_rent, rent_growth_rate, yearly_rsu_grant, pre_tax_401k_contribution, investment, grocery, utility, subscription, lunch, lifestyle, medical, travel, shopping, maintenance, car, miscellaneous):
+def update_plots(n_clicks, home_price, downpayment_percentage, closing_cost, interest_rate, appreciation_rate, insurance, initial_income, income_growth_rate, income_tax_rate, expense_growth_rate, initial_rent, rent_growth_rate, yearly_rsu_grant, pre_tax_401k_contribution, investment, sp500_return, grocery, utility, subscription, lunch, lifestyle, medical, travel, shopping, maintenance, car, miscellaneous):
     # Update constants with default values if None
     home_price = home_price or HOME_PRICE
     downpayment_percentage = downpayment_percentage or DOWNPAYMENT_PERCENTAGE
@@ -507,6 +512,7 @@ def update_plots(n_clicks, home_price, downpayment_percentage, closing_cost, int
     yearly_rsu_grant = yearly_rsu_grant or YEARLY_RSU_GRANT
     pre_tax_401k_contribution = pre_tax_401k_contribution or PRE_TAX_401K_CONTRIBUTION
     investment = investment or INVESTMENT
+    sp500_return = sp500_return or S_P_500_RETURN
     grocery = grocery or GROCERY
     utility = utility or UTILITY
     subscription = subscription or SUBSCRIPTION
@@ -525,7 +531,7 @@ def update_plots(n_clicks, home_price, downpayment_percentage, closing_cost, int
     personal_expenses = PersonalExpenses(investment=investment, grocery=grocery, utility=utility, subscription=subscription, lunch=lunch, lifestyle=lifestyle, medical=medical, travel=travel, shopping=shopping, maintenance=maintenance, car=car, miscellaneous=miscellaneous)
     rent_expenses = RentExpenses(initial_rent=initial_rent, rent_growth_rate=rent_growth_rate)
     income_details = IncomeDetails(initial_income=initial_income, growth_rate=income_growth_rate, tax_rate=income_tax_rate, pre_tax_401k_contribution=pre_tax_401k_contribution)
-    investment_growth = InvestmentGrowth(monthly_investment=personal_expenses.investment, yearly_rsu_grant=yearly_rsu_grant, pre_tax_401k_contribution=pre_tax_401k_contribution)
+    investment_growth = InvestmentGrowth(monthly_investment=personal_expenses.investment, yearly_rsu_grant=yearly_rsu_grant, pre_tax_401k_contribution=pre_tax_401k_contribution, investment_growth_rate=sp500_return)
     real_estate_investment = RealEstateInvestment(loan_details, house_expenses, personal_expenses, rent_expenses, income_details, investment_growth)
 
     # Recalculate house expenses to reflect updated loan details
