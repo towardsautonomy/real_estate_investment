@@ -59,6 +59,7 @@ class LoanDetails:
 @dataclass
 class HouseExpenses:
     loan_details: LoanDetails
+    property_tax_rate: float = PROPERTY_TAX_RATE
     monthly_mortgage: float = field(init=False)
     property_tax: float = field(init=False)
     total_home_expenses: float = field(init=False)
@@ -68,7 +69,7 @@ class HouseExpenses:
 
     def calculate_expenses(self):
         self.monthly_mortgage = self.calculate_monthly_mortgage()
-        self.property_tax = (self.loan_details.house_price * PROPERTY_TAX_RATE) / 12
+        self.property_tax = (self.loan_details.house_price * self.property_tax_rate) / 12
         self.total_home_expenses = self.monthly_mortgage + self.property_tax + INSURANCE / 12
 
     def calculate_monthly_mortgage(self):
@@ -255,20 +256,25 @@ class RealEstateInvestment:
         years_net_worth, assets, stocks, total_assets, k401 = self.net_worth(schedule)
 
         # Create all plots using the create_plot method
+        vline = []
+        if crossover_year_sp500:
+            vline.append({'x': crossover_year_sp500, 'color': 'Red', 'text': f'Crossover with S&P 500 at Year {crossover_year_sp500}'})
+        if crossover_year_breakeven:
+            vline.append({'x': crossover_year_breakeven, 'color': 'Green', 'text': f'Break-even Point at Year {crossover_year_breakeven}'})
         fig1 = self.create_plot("Investment vs House Value", years, 
                                 [house_value, total_investment, sp500_investment, roi], 
                                 "Years", "Value ($)", 
                                 ["House Value", "Total Investment", "S&P 500 Investment", "Return on Investment"], 
                                 ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728'], 
-                                [{'x': crossover_year_sp500, 'color': 'Red', 'text': f'Crossover with S&P 500 at Year {crossover_year_sp500}'},
-                                 {'x': crossover_year_breakeven, 'color': 'Green', 'text': f'Break-even Point at Year {crossover_year_breakeven}'}])
+                                vline)
 
+        vline = [{'x': optimal_year, 'color': 'Red', 'text': f'Optimal Year to Buy: {optimal_year}'}] if optimal_year else None
         fig2 = self.create_plot("Optimal Time to Buy", years, 
                                 [investment_over_time, downpayment_30_over_time, house_price_over_time], 
                                 "Years", "Investment Value ($)", 
                                 ["Investment Over Time", "30% Downpayment", "House Price Over Time"], 
                                 ['#1f77b4', '#ff7f0e', '#2ca02c'], 
-                                [{'x': optimal_year, 'color': 'Blue', 'text': f'Optimal Year {optimal_year}'}])
+                                vline)
 
         fig3 = self.create_plot("Profit and Loan Balance Over Time", years, 
                                 [profit, loan_balance], 
@@ -301,7 +307,7 @@ server = Flask(__name__)
 app = dash.Dash(__name__, server=server)
 
 loan_details = LoanDetails(house_price=HOME_PRICE, downpayment_percentage=DOWNPAYMENT_PERCENTAGE, closing_cost=CLOSING_COST, interest_rate=INTEREST_RATE)
-house_expenses = HouseExpenses(loan_details)
+house_expenses = HouseExpenses(loan_details, PROPERTY_TAX_RATE)
 personal_expenses = PersonalExpenses()
 rent_expenses = RentExpenses()
 income_details = IncomeDetails()
@@ -331,6 +337,10 @@ app.layout = html.Div(children=[
         html.Div([
             html.Label('Interest Rate'),
             dcc.Input(id='interest_rate', type='number', value=INTEREST_RATE, step=0.001)
+        ], className='input-box'),
+        html.Div([
+            html.Label('Property Tax Rate'),
+            dcc.Input(id='property_tax_rate', type='number', value=PROPERTY_TAX_RATE, step=0.0001)
         ], className='input-box'),
         html.Div([
             html.Label('House Appreciation Rate'),
@@ -471,6 +481,7 @@ app.layout = html.Div(children=[
      Input('downpayment_percentage', 'value'),
      Input('closing_cost', 'value'),
      Input('interest_rate', 'value'),
+     Input('property_tax_rate', 'value'),
      Input('appreciation_rate', 'value'),
      Input('insurance', 'value'),
      Input('initial_income', 'value'),
@@ -495,12 +506,13 @@ app.layout = html.Div(children=[
      Input('car', 'value'),
      Input('miscellaneous', 'value')]
 )
-def update_plots(n_clicks, home_price, downpayment_percentage, closing_cost, interest_rate, appreciation_rate, insurance, initial_income, income_growth_rate, income_tax_rate, expense_growth_rate, initial_rent, rent_growth_rate, yearly_rsu_grant, pre_tax_401k_contribution, investment, sp500_return, grocery, utility, subscription, lunch, lifestyle, medical, travel, shopping, maintenance, car, miscellaneous):
+def update_plots(n_clicks, home_price, downpayment_percentage, closing_cost, interest_rate, property_tax_rate, appreciation_rate, insurance, initial_income, income_growth_rate, income_tax_rate, expense_growth_rate, initial_rent, rent_growth_rate, yearly_rsu_grant, pre_tax_401k_contribution, investment, sp500_return, grocery, utility, subscription, lunch, lifestyle, medical, travel, shopping, maintenance, car, miscellaneous):
     # Update constants with default values if None
     home_price = home_price or HOME_PRICE
     downpayment_percentage = downpayment_percentage or DOWNPAYMENT_PERCENTAGE
     closing_cost = closing_cost or CLOSING_COST
     interest_rate = interest_rate or INTEREST_RATE
+    property_tax_rate = property_tax_rate or PROPERTY_TAX_RATE
     appreciation_rate = appreciation_rate or APPRECIATION_RATE
     insurance = insurance or INSURANCE
     initial_income = initial_income or INITIAL_INCOME
@@ -527,7 +539,7 @@ def update_plots(n_clicks, home_price, downpayment_percentage, closing_cost, int
 
     # Recalculate everything with new constants
     loan_details = LoanDetails(house_price=home_price, downpayment_percentage=downpayment_percentage, closing_cost=closing_cost, interest_rate=interest_rate)
-    house_expenses = HouseExpenses(loan_details)
+    house_expenses = HouseExpenses(loan_details, property_tax_rate)
     personal_expenses = PersonalExpenses(investment=investment, grocery=grocery, utility=utility, subscription=subscription, lunch=lunch, lifestyle=lifestyle, medical=medical, travel=travel, shopping=shopping, maintenance=maintenance, car=car, miscellaneous=miscellaneous)
     rent_expenses = RentExpenses(initial_rent=initial_rent, rent_growth_rate=rent_growth_rate)
     income_details = IncomeDetails(initial_income=initial_income, growth_rate=income_growth_rate, tax_rate=income_tax_rate, pre_tax_401k_contribution=pre_tax_401k_contribution)
