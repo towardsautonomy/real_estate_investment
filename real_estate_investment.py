@@ -243,7 +243,7 @@ class RealEstateInvestment:
         if vline:
             for vline_info in vline:
                 fig.add_vline(x=vline_info['x'], line=dict(color=vline_info['color'], width=2, dash='dash'), annotation_text=vline_info['text'])
-        fig.update_layout(title=title, xaxis_title=x_label, yaxis_title=y_label, template='plotly_white', height=900, width=1600, font=dict(size=20))
+        fig.update_layout(title=title, xaxis_title=x_label, yaxis_title=y_label, template='plotly_white', height=700, width=1200, font=dict(size=20))
         return fig
 
     def create_plots(self):
