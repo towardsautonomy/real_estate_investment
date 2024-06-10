@@ -6,7 +6,7 @@ from dash import dcc, html, Input, Output
 from flask import Flask
 
 # Constants
-HOME_PRICE = 150000.0
+HOME_PRICE = 1500000.0
 DOWNPAYMENT_PERCENTAGE = 0.2
 CLOSING_COST = 45000.0
 PROPERTY_TAX_RATE = 0.0136
