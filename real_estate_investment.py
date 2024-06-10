@@ -203,7 +203,11 @@ class RealEstateInvestment:
             downpayment_30_over_time.append(current_house_price * OPTIMUM_DOWNPAYMENT_PERCENTAGE)
             house_price_over_time.append(current_house_price)
 
-        optimal_year = np.argwhere(np.array(investment_over_time) >= np.array(downpayment_30_over_time)).flatten()[0] + 1
+        optimal_year = np.argwhere(np.array(investment_over_time) >= np.array(downpayment_30_over_time)).flatten()
+        if optimal_year.size > 0:
+            optimal_year = optimal_year[0] + 1
+        else:
+            optimal_year = None
 
         return years, investment_over_time, downpayment_30_over_time, house_price_over_time, optimal_year
 
