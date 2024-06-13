@@ -8,7 +8,7 @@ from flask import Flask
 # Constants
 HOME_PRICE = 1250000.0
 DOWNPAYMENT_PERCENTAGE = 0.2
-CLOSING_COST = 45000.0
+CLOSING_COST = 30000.0
 PROPERTY_TAX_RATE = 0.0136
 INTEREST_RATE = 0.06375
 APPRECIATION_RATE = 0.065
@@ -170,7 +170,30 @@ class RealEstateInvestment:
             schedule[i, 2] = interest_payment
 
         cumulative_schedule = np.cumsum(schedule, axis=0)
-        return cumulative_schedule
+        return schedule, cumulative_schedule
+
+    def get_payment_schedule_table(self, schedule, cumulative_schedule):
+        n = schedule.shape[0]
+        monthly_mortgage = schedule[:n, 0]
+        principal_payment = schedule[:n, 1]
+        interest_payment = schedule[:n, 2]
+        remaining_principal = self.loan_details.loan_amount - cumulative_schedule[:n, 1]
+
+        table_data = {
+            'Year': np.arange(0, n) // 12,
+            'Month': np.arange(0, n) % 12,
+            'Payment Number': np.arange(1, n + 1),
+            'Monthly Mortgage Payment': np.round(monthly_mortgage, 2),
+            'Principal Payment': np.round(principal_payment, 2),
+            'Interest Payment': np.round(interest_payment, 2),
+            'Remaining Principal': np.round(remaining_principal, 2),
+            'Cumulative Principal': np.round(np.cumsum(principal_payment), 2),
+            'Cumulative Interest': np.round(np.cumsum(interest_payment), 2),
+            'Cumulative Total Payment': np.round(np.cumsum(monthly_mortgage), 2),
+            'Total Remaining Payment': np.round(self.loan_details.loan_amount - np.cumsum(principal_payment), 2)
+        }
+
+        return table_data
 
     def investment_vs_house_value(self, schedule):
         years = np.arange(1, LOAN_TERM + 1)
@@ -252,12 +275,12 @@ class RealEstateInvestment:
         return fig
 
     def create_plots(self):
-        schedule = self.calculate_payment_schedule()
-        years, house_value, total_investment, sp500_investment, roi, crossover_year_sp500, crossover_year_breakeven = self.investment_vs_house_value(schedule)
+        schedule, cumulative_schedule = self.calculate_payment_schedule()
+        years, house_value, total_investment, sp500_investment, roi, crossover_year_sp500, crossover_year_breakeven = self.investment_vs_house_value(cumulative_schedule)
         optimal_years, investment_over_time, downpayment_30_over_time, house_price_over_time, optimal_year = self.optimal_time_to_buy()
-        years_profit, loan_balance, profit = self.calculate_profit_and_loan_balance(schedule)
+        years_profit, loan_balance, profit = self.calculate_profit_and_loan_balance(cumulative_schedule)
         years_money, money_in_hand_with_house, money_in_hand_with_rent = self.money_in_hand()
-        years_net_worth, assets, stocks, total_assets, k401 = self.net_worth(schedule)
+        years_net_worth, assets, stocks, total_assets, k401 = self.net_worth(cumulative_schedule)
 
         # Create all plots using the create_plot method
         vline = []
@@ -266,10 +289,10 @@ class RealEstateInvestment:
         if crossover_year_breakeven:
             vline.append({'x': crossover_year_breakeven, 'color': 'Green', 'text': f'Break-even Point at Year {crossover_year_breakeven}'})
         fig1 = self.create_plot("Investment vs House Value", years, 
-                                [house_value, total_investment, sp500_investment, roi], 
+                                [house_value, total_investment, sp500_investment, roi, profit], 
                                 "Years", "Value ($)", 
-                                ["House Value", "Total Investment", "S&P 500 Investment", "Return on Investment"], 
-                                ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728'], 
+                                ["House Value", "Total Investment", "S&P 500 Investment", "Return on Investment", "Profit"], 
+                                ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd'], 
                                 vline)
 
         vline = [{'x': optimal_year, 'color': 'Red', 'text': f'Optimal Year to Buy: {optimal_year}'}] if optimal_year else None
@@ -280,31 +303,25 @@ class RealEstateInvestment:
                                 ['#1f77b4', '#ff7f0e', '#2ca02c'], 
                                 vline)
 
-        fig3 = self.create_plot("Profit and Loan Balance Over Time", years, 
-                                [profit, loan_balance], 
-                                "Years", "Profit and Loan Balance ($)", 
-                                ["Profit", "Loan Balance"], 
-                                ['#1f77b4', '#ff7f0e'])
-
-        fig4 = self.create_plot("Payment Schedule", years, 
-                                [schedule[:years.size * 12:12, 0], schedule[:years.size * 12:12, 1], schedule[:years.size * 12:12, 2]], 
+        fig3 = self.create_plot("Payment Schedule", years, 
+                                [cumulative_schedule[:years.size * 12:12, 0], cumulative_schedule[:years.size * 12:12, 1], cumulative_schedule[:years.size * 12:12, 2], loan_balance], 
                                 "Years", "Cumulative Payment ($)", 
-                                ["Cumulative Total Payment", "Cumulative Principal Payment", "Cumulative Interest Payment"], 
-                                ['#1f77b4', '#ff7f0e', '#2ca02c'])
+                                ["Cumulative Total Payment", "Cumulative Principal Payment", "Cumulative Interest Payment", "Loan Balance"], 
+                                ['#1f77b4', '#ff7f0e', '#2ca02c', '#9467bd'])
 
-        fig5 = self.create_plot("Monthly Money in Hand", years, 
+        fig4 = self.create_plot("Monthly Money in Hand", years, 
                                 [money_in_hand_with_house, money_in_hand_with_rent], 
                                 "Years", "Monthly Money in Hand ($)", 
                                 ["Monthly Money in Hand with House", "Monthly Money in Hand with Rent"], 
                                 ['#1f77b4', '#ff7f0e'])
 
-        fig6 = self.create_plot("Net Worth", years_net_worth, 
+        fig5 = self.create_plot("Net Worth", years_net_worth, 
                                 [assets, stocks, total_assets, k401], 
                                 "Years", "Net Worth ($)", 
                                 ["Assets", "Stocks", "Total Assets", "401k Value"], 
-                                ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728'])
+                                ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd'])
 
-        return fig1, fig2, fig3, fig4, fig5, fig6
+        return fig1, fig2, fig3, fig4, fig5
 
 # Create Dash app
 server = Flask(__name__)
@@ -319,7 +336,9 @@ investment_growth = InvestmentGrowth(monthly_investment=personal_expenses.invest
 real_estate_investment = RealEstateInvestment(loan_details, house_expenses, personal_expenses, rent_expenses, income_details, investment_growth)
 
 # Create plots
-fig1, fig2, fig3, fig4, fig5, fig6 = real_estate_investment.create_plots()
+fig1, fig2, fig3, fig4, fig5 = real_estate_investment.create_plots()
+schedule, cumulative_schedule = real_estate_investment.calculate_payment_schedule()
+payment_schedule_table = real_estate_investment.get_payment_schedule_table(schedule, cumulative_schedule)
 
 # Define app layout
 app.layout = html.Div(children=[
@@ -453,33 +472,39 @@ app.layout = html.Div(children=[
     ),
 
     dcc.Graph(
-        id='profit-and-loan-balance-over-time',
+        id='payment-schedule',
         figure=fig3
     ),
 
     dcc.Graph(
-        id='payment-schedule',
+        id='monthly-money-in-hand',
         figure=fig4
     ),
 
     dcc.Graph(
-        id='monthly-money-in-hand',
+        id='net-worth',
         figure=fig5
     ),
 
-    dcc.Graph(
-        id='net-worth',
-        figure=fig6
-    ),
+    html.Div([
+        dash_table.DataTable(
+            id='payment-schedule-table',
+            columns=[{'name': col, 'id': col} for col in payment_schedule_table.keys()],
+            data=[{col: payment_schedule_table[col][i] for col in payment_schedule_table.keys()} for i in range(len(payment_schedule_table['Year']))],
+            style_table={'overflowX': 'auto'},
+            style_cell={'textAlign': 'center', 'padding': '5px'},
+            style_header={'backgroundColor': 'white', 'fontWeight': 'bold'},
+        )
+    ], style={'marginTop': '50px'})
 ], className='main-container')
 
 @app.callback(
     [Output('investment-vs-house-value', 'figure'),
      Output('optimal-time-to-buy', 'figure'),
-     Output('profit-and-loan-balance-over-time', 'figure'),
      Output('payment-schedule', 'figure'),
      Output('monthly-money-in-hand', 'figure'),
-     Output('net-worth', 'figure')],
+     Output('net-worth', 'figure'),
+     Output('payment-schedule-table', 'data')],
     [Input('update-button', 'n_clicks')],
     [Input('home_price', 'value'),
      Input('downpayment_percentage', 'value'),
@@ -554,9 +579,14 @@ def update_plots(n_clicks, home_price, downpayment_percentage, closing_cost, int
     house_expenses.calculate_expenses()
 
     # Create updated plots
-    fig1, fig2, fig3, fig4, fig5, fig6 = real_estate_investment.create_plots()
+    fig1, fig2, fig3, fig4, fig5 = real_estate_investment.create_plots()
+    schedule, cumulative_schedule = real_estate_investment.calculate_payment_schedule()
+    payment_schedule_table = real_estate_investment.get_payment_schedule_table(schedule, cumulative_schedule)
 
-    return fig1, fig2, fig3, fig4, fig5, fig6
+    return fig1, fig2, fig3, fig4, fig5, [
+        {col: payment_schedule_table[col][i] for col in payment_schedule_table.keys()}
+        for i in range(len(payment_schedule_table['Year']))
+    ]
 
 # Add CSS styling for input boxes and container
 app.index_string = '''
