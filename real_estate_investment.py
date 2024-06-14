@@ -2,7 +2,7 @@ import numpy as np
 from dataclasses import dataclass, field
 import plotly.graph_objs as go
 import dash
-from dash import dcc, html, Input, Output
+from dash import dcc, html, Input, Output, dash_table
 from flask import Flask
 
 # Constants
